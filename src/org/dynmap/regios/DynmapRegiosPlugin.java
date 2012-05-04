@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -27,12 +28,11 @@ import org.dynmap.markers.MarkerSet;
 import couk.Adamki11s.Regios.API.RegiosAPI;
 import couk.Adamki11s.Regios.Main.Regios;
 import couk.Adamki11s.Regios.Regions.Region;
-import couk.Adamki11s.Regios.Regions.RegionLocation;
 
 public class DynmapRegiosPlugin extends JavaPlugin {
 	private static final Logger log = Logger.getLogger("Minecraft");
 	private static final String LOG_PREFIX = "[Dynmap-Regios] ";
-	private static final String DEF_INFOWINDOW = "<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner <span style=\"font-weight:bold;\">%playerowner%</span></div>";
+	private static final String DEF_INFOWINDOW = "<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner: <span style=\"font-weight:bold;\">%playerowner%</span><br /> Protected: <span style=\"font-weight:bold;\">%protected%</span><br /> Protected-BB: <span style=\"font-weight:bold;\">%protectedbb%</span><br /> Protected-BP: <span style=\"font-weight:bold;\">%protectedbp%</span><br /> Prevent-Entry: <span style=\"font-weight:bold;\">%preventry%</span><br /> Prevent-Exit: <span style=\"font-weight:bold;\">%prevexit%</span><br /> PVP-Enabled: <span style=\"font-weight:bold;\">%pvp%</span></div>";
 	Plugin dynmap;
 	DynmapAPI api;
 	MarkerAPI markerapi;
@@ -98,6 +98,12 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 		String v = "<div class=\"regioninfo\">"+infowindow+"</div>";
 		v = v.replace("%regionname%", m.getLabel());
 		v = v.replace("%playerowner%", region.getOwner());
+		v = v.replace("%protected%", String.valueOf(region.isProtected()));
+		v = v.replace("%protectedbb%", String.valueOf(region.is_protectionBreak()));
+		v = v.replace("%protectedbp%", String.valueOf(region.is_protectionPlace()));
+		v = v.replace("%preventry%", String.valueOf(region.isPreventEntry()));
+		v = v.replace("%prevexit%", String.valueOf(region.isPreventExit()));
+		v = v.replace("%pvp%", String.valueOf(region.isPvp()));
 		return v;
 	}
 
@@ -155,8 +161,8 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 		/* Handle areas */
 		if(isVisible(pr.getName(), world.getName())) {
 			String id = pr.getName();
-			RegionLocation l0 = pr.getL1();
-			RegionLocation l1 = pr.getL2();
+			Location l0 = pr.getL1();
+			Location l1 = pr.getL2();
 
 			/* Make outline */
 			x = new double[4];

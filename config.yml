@@ -17,7 +17,7 @@ layer:
 use3dregions: false
 
 # Format for popup - substitute values for macros
-infowindow: '<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner <span style=\"font-weight:bold;\">%playerowner%</span></div>'
+infowindow: '<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner: <span style=\"font-weight:bold;\">%playerowner%</span><br /> Protected: <span style=\"font-weight:bold;\">%protected%</span><br /> Protected-BB: <span style=\"font-weight:bold;\">%protectedbb%</span><br /> Protected-BP: <span style=\"font-weight:bold;\">%protectedbp%</span><br /> Prevent-Entry: <span style=\"font-weight:bold;\">%preventry%</span><br /> Prevent-Exit: <span style=\"font-weight:bold;\">%prevexit%</span><br /> PVP-Enabled: <span style=\"font-weight:bold;\">%pvp%</span></div>'
 
 regionstyle:
   strokeColor: "#FF0000"

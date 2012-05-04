@@ -1,6 +1,6 @@
 name: Dynmap-Regios
 main: org.dynmap.regios.DynmapRegiosPlugin
-version: 0.3
+version: 0.4
 author: johnnyzerox7
 depend: [ dynmap, Regios ]
 
