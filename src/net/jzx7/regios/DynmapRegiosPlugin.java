@@ -1,5 +1,6 @@
-package org.dynmap.regios;
+package net.jzx7.regios;
 
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,6 +9,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import net.jzx7.regiosapi.regions.CuboidRegion;
+import net.jzx7.regiosapi.regions.PolyRegion;
+import net.jzx7.regiosapi.regions.Region;
+import net.jzx7.regiosapi.RegiosAPI;
 
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -25,19 +31,15 @@ import org.dynmap.markers.AreaMarker;
 import org.dynmap.markers.MarkerAPI;
 import org.dynmap.markers.MarkerSet;
 
-import couk.Adamki11s.Regios.API.RegiosAPI;
-import couk.Adamki11s.Regios.Main.Regios;
-import couk.Adamki11s.Regios.Regions.Region;
-
 public class DynmapRegiosPlugin extends JavaPlugin {
 	private static final Logger log = Logger.getLogger("Minecraft");
 	private static final String LOG_PREFIX = "[Dynmap-Regios] ";
 	private static final String DEF_INFOWINDOW = "<div class=\"infowindow\"><span style=\"font-size:120%;\">%regionname%</span><br /> Owner: <span style=\"font-weight:bold;\">%playerowner%</span><br /> Protected: <span style=\"font-weight:bold;\">%protected%</span><br /> Protected-BB: <span style=\"font-weight:bold;\">%protectedbb%</span><br /> Protected-BP: <span style=\"font-weight:bold;\">%protectedbp%</span><br /> Prevent-Entry: <span style=\"font-weight:bold;\">%preventry%</span><br /> Prevent-Exit: <span style=\"font-weight:bold;\">%prevexit%</span><br /> PVP-Enabled: <span style=\"font-weight:bold;\">%pvp%</span></div>";
 	Plugin dynmap;
 	DynmapAPI api;
+	Plugin regios;
 	MarkerAPI markerapi;
-	Regios reg;
-	RegiosAPI regapi = new RegiosAPI();
+	RegiosAPI regiosapi;
 
 	FileConfiguration cfg;
 	MarkerSet set;
@@ -153,31 +155,53 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 	}
 
 	/* Handle specific region */
-	private void handleRegion(World world, Region pr, Map<String, AreaMarker> newmap) {
-		String name = pr.getName();
+	private void handleRegion(World world, Region r, Map<String, AreaMarker> newmap) {
+		String name = r.getName();
 		double[] x = null;
 		double[] z = null;
 
 		/* Handle areas */
-		if(isVisible(pr.getName(), world.getName())) {
-			String id = pr.getName();
-			Location l0 = pr.getL1();
-			Location l1 = pr.getL2();
+		if(isVisible(r.getName(), world.getName())) {
+			String id = r.getName();
+			Location l0 = null, l1 = null;
+			if (r instanceof CuboidRegion) {
+				l0 = ((CuboidRegion) r).getL1();
+				l1 = ((CuboidRegion) r).getL2();
 
-			/* Make outline */
-			x = new double[4];
-			z = new double[4];
-			x[0] = l0.getX(); z[0] = l0.getZ();
-			x[1] = l0.getX(); z[1] = l1.getZ()+1.0;
-			x[2] = l1.getX() + 1.0; z[2] = l1.getZ()+1.0;
-			x[3] = l1.getX() + 1.0; z[3] = l0.getZ();
+				/* Make outline */
+				x = new double[4];
+				z = new double[4];
+				x[0] = l0.getX(); z[0] = l0.getZ();
+				x[1] = l0.getX(); z[1] = l1.getZ()+1.0;
+				x[2] = l1.getX() + 1.0; z[2] = l1.getZ()+1.0;
+				x[3] = l1.getX() + 1.0; z[3] = l0.getZ();
 
+			} else if (r instanceof PolyRegion) {
+				PolyRegion pr = (PolyRegion) r;
+				Rectangle2D rect = pr.get2DPolygon().getBounds2D();
+				l0 = new Location(r.getWorld(), rect.getMinX(), pr.getMinY(), rect.getMinY());
+				l1 = new Location(r.getWorld(), rect.getMaxX(), pr.getMaxY(), rect.getMaxY());
+				
+				/* Make outline */
+				x = new double[pr.get2DPolygon().npoints];
+                z = new double[pr.get2DPolygon().npoints];
+                for(int i = 0; i < pr.get2DPolygon().npoints; i++) {
+                    x[i] = pr.get2DPolygon().xpoints[i] ; z[i] = pr.get2DPolygon().ypoints[i];
+                }
+			} else {
+				return; /*Unsupported type*/
+			}
 			String markerid = world.getName() + "_" + id;
 			AreaMarker m = resareas.remove(markerid); /* Existing area? */
 			if(m == null) {
 				m = set.createAreaMarker(markerid, name, false, world.getName(), x, z, false);
 				if(m == null)
 					return;
+				if (l1.getY() > l0.getY()) {
+					m.setRangeY(l1.getY()-l0.getY(), l1.getY()-l0.getY());
+				} else {
+					m.setRangeY(l0.getY()-l1.getY(), l0.getY()-l1.getY());
+				}
 			}
 			else {
 				m.setCornerLocations(x, z); /* Replace corner locations */
@@ -187,10 +211,10 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 				m.setRangeY(l1.getY()+1.0, l0.getY());
 			}            
 			/* Set line and fill properties */
-			addStyle(id, world.getName(), m, pr);
+			addStyle(id, world.getName(), m, r);
 
 			/* Build popup */
-			String desc = formatInfoWindow(pr, m);
+			String desc = formatInfoWindow(r, m);
 
 			m.setDescription(desc); /* Set popup */
 
@@ -205,11 +229,11 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 
 		/* Loop through worlds */
 		for(World w : getServer().getWorlds()) {
-			ArrayList<Region> regions = regapi.getRegions(w);  /* Get all the regions */
+			ArrayList<Region> regions = regiosapi.getRegions(w);  /* Get all the regions */
 			for(Region pr : regions) {
-//				if(pr.getWorld().getName().equalsIgnoreCase(w.getName())) {
-//					handleRegion(w, pr, newmap);
-//				}
+				//				if(pr.getWorld().getName().equalsIgnoreCase(w.getName())) {
+				//					handleRegion(w, pr, newmap);
+				//				}
 				handleRegion(w, pr, newmap);
 			}
 		}
@@ -231,7 +255,7 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 			Plugin p = event.getPlugin();
 			String name = p.getDescription().getName();
 			if(name.equals("dynmap") || name.equals("Regios")) {
-				if(dynmap.isEnabled() && reg.isEnabled())
+				if(dynmap.isEnabled() && regios.isEnabled())
 					activate();
 			}
 		}
@@ -247,17 +271,18 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 			return;
 		}
 		api = (DynmapAPI)dynmap; /* Get API */
+
 		/* Get Regios */
-		Plugin p = pm.getPlugin("Regios");
-		if(p == null) {
+		regios = pm.getPlugin("Regios");
+		if(regios == null) {
 			severe("Cannot find Regios!");
 			return;
 		}
-		reg = (Regios)p;
+		regiosapi = (RegiosAPI)regios; /* Get API */
 
 		getServer().getPluginManager().registerEvents(new OurServerListener(), this);        
 		/* If both enabled, activate */
-		if(dynmap.isEnabled() && reg.isEnabled())
+		if(dynmap.isEnabled() && regios.isEnabled())
 			activate();
 	}
 
