@@ -1,6 +1,7 @@
 package net.jzx7.regios;
 
 import java.awt.geom.Rectangle2D;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,12 +11,13 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import net.jzx7.Metrics.Metrics;
+import net.jzx7.regiosapi.location.RegiosPoint;
 import net.jzx7.regiosapi.regions.CuboidRegion;
 import net.jzx7.regiosapi.regions.PolyRegion;
 import net.jzx7.regiosapi.regions.Region;
 import net.jzx7.regiosapi.RegiosAPI;
 
-import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -163,7 +165,8 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 		/* Handle areas */
 		if(isVisible(r.getName(), world.getName())) {
 			String id = r.getName();
-			Location l0 = null, l1 = null;
+			RegiosPoint l0 = null;
+			RegiosPoint l1 = null;
 			if (r instanceof CuboidRegion) {
 				l0 = ((CuboidRegion) r).getL1();
 				l1 = ((CuboidRegion) r).getL2();
@@ -179,8 +182,8 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 			} else if (r instanceof PolyRegion) {
 				PolyRegion pr = (PolyRegion) r;
 				Rectangle2D rect = pr.get2DPolygon().getBounds2D();
-				l0 = new Location(r.getWorld(), rect.getMinX(), pr.getMinY(), rect.getMinY());
-				l1 = new Location(r.getWorld(), rect.getMaxX(), pr.getMaxY(), rect.getMaxY());
+				l0 = new RegiosPoint(r.getWorld(), rect.getMinX(), pr.getMinY(), rect.getMinY());
+				l1 = new RegiosPoint(r.getWorld(), rect.getMaxX(), pr.getMaxY(), rect.getMaxY());
 				
 				/* Make outline */
 				x = new double[pr.get2DPolygon().npoints];
@@ -284,6 +287,13 @@ public class DynmapRegiosPlugin extends JavaPlugin {
 		/* If both enabled, activate */
 		if(dynmap.isEnabled() && regios.isEnabled())
 			activate();
+		
+		try {
+		    Metrics metrics = new Metrics(this);
+		    metrics.start();
+		} catch (IOException e) {
+		    // Failed to submit the stats :-(
+		}
 	}
 
 	private void activate() {
